@@ -1,5 +1,5 @@
 {
-  "name": "@anthropic/tetris",
+  "name": "@zos-apps/tetris",
   "version": "1.0.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -11,9 +11,14 @@
     "icon": "🧱",
     "category": "games",
     "description": "Classic block-stacking puzzle game",
-    "permissions": ["storage.local"],
+    "permissions": [
+      "storage.local"
+    ],
     "window": {
-      "defaultSize": { "width": 400, "height": 600 },
+      "defaultSize": {
+        "width": 400,
+        "height": 600
+      },
       "resizable": true
     }
   },
@@ -30,5 +35,23 @@
     "@types/react-dom": "^18.3.0",
     "tsup": "^8.3.5",
     "typescript": "^5.7.2"
-  }
+  },
+  "description": "Classic block-stacking puzzle game",
+  "homepage": "https://zos-apps.github.io/tetris",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zos-apps/tetris.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zos-apps/tetris/issues"
+  },
+  "author": "Hanzo AI",
+  "license": "MIT",
+  "keywords": [
+    "zos",
+    "app",
+    "tetris",
+    "macos",
+    "desktop"
+  ]
 }
