@@ -20,7 +20,29 @@
         "height": 600
       },
       "resizable": true
-    }
+    },
+    "about": "The legendary tile-matching puzzle game.",
+    "help": [
+      "Arrow keys to move",
+      "Up to rotate",
+      "Space for hard drop"
+    ],
+    "docs": "https://zos-apps.github.io/tetris",
+    "site": "https://github.com/zos-apps/tetris",
+    "shortcuts": [
+      "←→ Move",
+      "↑ Rotate",
+      "↓ Soft drop",
+      "Space Hard drop",
+      "P Pause"
+    ],
+    "features": [
+      "Classic gameplay",
+      "Ghost piece",
+      "Hold piece",
+      "Score tracking",
+      "Levels"
+    ]
   },
   "scripts": {
     "build": "tsup",
@@ -53,5 +75,13 @@
     "tetris",
     "macos",
     "desktop"
-  ]
+  ],
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/zos-apps"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
 }
