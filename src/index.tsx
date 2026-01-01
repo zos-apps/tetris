@@ -1,8 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-
-interface TetrisProps {
-  onClose: () => void;
-}
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { AppProps } from '@zos-apps/config';
+import { useKeyboard, useHighScore } from '@zos-apps/config';
 
 type Piece = number[][];
 type Board = (string | null)[][];
@@ -23,7 +21,7 @@ const CELL_SIZE = 24;
 
 const createBoard = (): Board => Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
 
-const Tetris: React.FC<TetrisProps> = ({ onClose }) => {
+const Tetris: React.FC<AppProps> = ({ onClose: _onClose }) => {
   const [board, setBoard] = useState<Board>(createBoard);
   const [currentPiece, setCurrentPiece] = useState<{ shape: Piece; color: string; x: number; y: number } | null>(null);
   const [nextPiece, setNextPiece] = useState<{ shape: Piece; color: string } | null>(null);
@@ -33,9 +31,21 @@ const Tetris: React.FC<TetrisProps> = ({ onClose }) => {
   const [gameOver, setGameOver] = useState(false);
   const [isPaused, setIsPaused] = useState(true);
   
+  const { highScore, updateHighScore } = useHighScore('tetris');
   const gameLoopRef = useRef<number | null>(null);
 
   const getRandomPiece = () => PIECES[Math.floor(Math.random() * PIECES.length)];
+
+  const resetGame = useCallback(() => {
+    setBoard(createBoard());
+    setScore(0);
+    setLevel(1);
+    setLines(0);
+    setGameOver(false);
+    setCurrentPiece(null);
+    setNextPiece(null);
+    setIsPaused(false);
+  }, []);
 
   const spawnPiece = useCallback(() => {
     const piece = nextPiece || getRandomPiece();
@@ -44,18 +54,18 @@ const Tetris: React.FC<TetrisProps> = ({ onClose }) => {
     const x = Math.floor((COLS - piece.shape[0].length) / 2);
     const y = 0;
     
-    // Check if spawn position is blocked
     for (let r = 0; r < piece.shape.length; r++) {
       for (let c = 0; c < piece.shape[r].length; c++) {
         if (piece.shape[r][c] && board[y + r]?.[x + c]) {
           setGameOver(true);
+          updateHighScore(score);
           return null;
         }
       }
     }
     
     return { ...piece, x, y };
-  }, [nextPiece, board]);
+  }, [nextPiece, board, score, updateHighScore]);
 
   const isValidMove = useCallback((piece: Piece, x: number, y: number): boolean => {
     for (let r = 0; r < piece.length; r++) {
@@ -97,7 +107,6 @@ const Tetris: React.FC<TetrisProps> = ({ onClose }) => {
       }
     }
     
-    // Clear lines
     let clearedLines = 0;
     for (let r = ROWS - 1; r >= 0; r--) {
       if (newBoard[r].every(cell => cell !== null)) {
@@ -110,7 +119,9 @@ const Tetris: React.FC<TetrisProps> = ({ onClose }) => {
     
     if (clearedLines > 0) {
       const points = [0, 100, 300, 500, 800][clearedLines] * level;
-      setScore(s => s + points);
+      const newScore = score + points;
+      setScore(newScore);
+      updateHighScore(newScore);
       setLines(l => {
         const newLines = l + clearedLines;
         setLevel(Math.floor(newLines / 10) + 1);
@@ -120,7 +131,7 @@ const Tetris: React.FC<TetrisProps> = ({ onClose }) => {
     
     setBoard(newBoard);
     setCurrentPiece(null);
-  }, [currentPiece, board, level]);
+  }, [currentPiece, board, level, score, updateHighScore]);
 
   const moveDown = useCallback(() => {
     if (!currentPiece || gameOver || isPaused) return;
@@ -155,6 +166,7 @@ const Tetris: React.FC<TetrisProps> = ({ onClose }) => {
     setTimeout(lockPiece, 0);
   }, [currentPiece, isValidMove, lockPiece, gameOver, isPaused]);
 
+  // Spawn new piece when needed
   useEffect(() => {
     if (!currentPiece && !gameOver && !isPaused) {
       const newPiece = spawnPiece();
@@ -162,6 +174,7 @@ const Tetris: React.FC<TetrisProps> = ({ onClose }) => {
     }
   }, [currentPiece, spawnPiece, gameOver, isPaused]);
 
+  // Game loop with variable speed based on level
   useEffect(() => {
     if (gameOver || isPaused) return;
     
@@ -173,48 +186,44 @@ const Tetris: React.FC<TetrisProps> = ({ onClose }) => {
     };
   }, [moveDown, level, gameOver, isPaused]);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === ' ' && gameOver) {
-        setBoard(createBoard());
-        setScore(0);
-        setLevel(1);
-        setLines(0);
-        setGameOver(false);
-        setCurrentPiece(null);
-        setNextPiece(null);
+  // Control keys
+  useKeyboard({
+    ArrowLeft: 'left',
+    ArrowRight: 'right',
+    ArrowDown: 'down',
+    ArrowUp: 'rotate',
+  }, (action) => {
+    if (gameOver || isPaused) return;
+    switch (action) {
+      case 'left': move(-1); break;
+      case 'right': move(1); break;
+      case 'down': moveDown(); break;
+      case 'rotate': rotate(); break;
+    }
+  });
+
+  // Pause/restart/hard drop controls
+  useKeyboard({
+    ' ': 'space',
+    'p': 'pause',
+    'P': 'pause',
+  }, (action) => {
+    if (action === 'space') {
+      if (gameOver) {
+        resetGame();
+      } else if (isPaused) {
         setIsPaused(false);
-        return;
+      } else {
+        hardDrop();
       }
-      
-      if (e.key === 'p' || e.key === 'P' || (e.key === ' ' && !gameOver)) {
-        e.preventDefault();
-        setIsPaused(p => !p);
-        return;
-      }
-      
-      const keys: Record<string, () => void> = {
-        ArrowLeft: () => move(-1),
-        ArrowRight: () => move(1),
-        ArrowDown: moveDown,
-        ArrowUp: rotate,
-        ' ': hardDrop,
-      };
-      
-      if (keys[e.key]) {
-        e.preventDefault();
-        keys[e.key]();
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [move, moveDown, rotate, hardDrop, gameOver]);
+    } else if (action === 'pause' && !gameOver) {
+      setIsPaused(p => !p);
+    }
+  });
 
   const renderBoard = () => {
     const display = board.map(row => [...row]);
     
-    // Add current piece
     if (currentPiece) {
       for (let r = 0; r < currentPiece.shape.length; r++) {
         for (let c = 0; c < currentPiece.shape[r].length; c++) {
@@ -239,9 +248,7 @@ const Tetris: React.FC<TetrisProps> = ({ onClose }) => {
         <div className="bg-gray-800 p-2 rounded">
           <div
             className="grid gap-px bg-gray-700"
-            style={{
-              gridTemplateColumns: `repeat(${COLS}, ${CELL_SIZE}px)`,
-            }}
+            style={{ gridTemplateColumns: `repeat(${COLS}, ${CELL_SIZE}px)` }}
           >
             {renderBoard().flat().map((cell, i) => (
               <div
@@ -262,6 +269,11 @@ const Tetris: React.FC<TetrisProps> = ({ onClose }) => {
           <div className="bg-gray-800 p-3 rounded">
             <div className="text-gray-400 text-xs mb-1">SCORE</div>
             <div className="text-white text-xl font-bold">{score}</div>
+          </div>
+          
+          <div className="bg-gray-800 p-3 rounded">
+            <div className="text-gray-400 text-xs mb-1">HIGH SCORE</div>
+            <div className="text-yellow-400 text-xl font-bold">{highScore}</div>
           </div>
           
           <div className="bg-gray-800 p-3 rounded">
@@ -309,7 +321,14 @@ const Tetris: React.FC<TetrisProps> = ({ onClose }) => {
             <div className="text-white text-2xl font-bold mb-2">
               {gameOver ? 'GAME OVER' : 'PAUSED'}
             </div>
-            {gameOver && <div className="text-gray-400 mb-4">Score: {score}</div>}
+            {gameOver && (
+              <>
+                <div className="text-gray-400 mb-2">Score: {score}</div>
+                {score >= highScore && score > 0 && (
+                  <div className="text-yellow-400 mb-4">🏆 New High Score!</div>
+                )}
+              </>
+            )}
             <div className="text-gray-400">Press SPACE to {gameOver ? 'restart' : 'continue'}</div>
           </div>
         </div>
